@@ -1,3 +1,7 @@
 *.FCStd1
 *.stl
 *.gcode
+*~
+rp/colortrack
+rp/mountcar
+rp/out.txt
