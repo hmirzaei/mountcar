@@ -9,6 +9,7 @@ using namespace std;
 
 const int width = 270;
 const int height = 75;
+const int winSize = 30;
 
 int iLowH = 6;
 int iHighH = 20;
@@ -69,7 +70,7 @@ int main( int argc, char** argv )
 
   for (int i  = 0; i < 1000; ++i) {
     cap.read(imgOriginal);
-    Mat img = imgOriginal(Rect(max(x - 10, 0), max(y - 10, 0), min(width - x, 20), min(height - y, 20)));
+    Mat img = imgOriginal(Rect(max(x - winSize/2, 0), max(y - winSize/2, 0), min(width - x, winSize), min(height - y, winSize)));
     
     Mat imgHSV;
     //Mat imgLines = Mat::zeros( imgOriginal.size(), CV_8UC3);
@@ -92,8 +93,8 @@ int main( int argc, char** argv )
       newx /= nonZeroCoordinates.total();
       newy /= nonZeroCoordinates.total();
     }
-    x = max(x - 10, 0) + newx;
-    y = max(y - 10, 0) + newy;
+    x = max(x - winSize/2, 0) + newx;
+    y = max(y - winSize/2, 0) + newy;
     
     myfile << x << "\t" << y << endl;
     // circle(imgLines, Point(x, y), 5, Scalar(0,0,255), 3);    
