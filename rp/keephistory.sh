@@ -5,7 +5,9 @@ sudo apt-get install emacs24
 sudo apt-get install libopencv-dev python-opencv
 # sudo apt-get install libav-tools
 git clone git://git.drogon.net/wiringPi
-cd ~/wiringPi
+git config --global user.name Hamid
+git config --global user.email hmirzai@gmail.com
+cd wiringPi
 ./build 
 
 ####
