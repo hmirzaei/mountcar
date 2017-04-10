@@ -13,14 +13,35 @@
 
 using namespace cv;
 using namespace std;
-const double coef[] = {0.000000014175208,  -0.000020224005030,   0.008447323489755,  -0.830402505433275,  34.128733821139527};
+
+//         0.5356 z^2 - 0.3397 z + 1.131e-16
+// x1_e:  ---------------------------------
+//                z^2 - 1.268 z + 0.4644
+
+//            17.04 z^2 - 17.04 z
+// x2_e:  ----------------------
+//           z^2 - 1.268 z + 0.4644
+double l1, l2, ldot1, ldot2;
+int m1, m2;
+int kalman(int m, double & l, double & ldot) {
+  l    = 0.5356 * m - 0.3397 * m1 + 1.131e-16 * m2 + 1.268 * l1 - 0.4644 * l2;
+  ldot = 17.04 * m - 17.04 * m1 + 1.268 * ldot1 - 0.4644 * ldot2;
+
+  m2 = m1;
+  m1 = m;
+  l2 = l1;
+  l1 = l;
+  ldot2 = ldot1;
+  ldot1 = ldot;
+}
 
 const int width = 640;
 const int height = 178;
 const int winSize = 72;
+
+int goal = -140;
+int totalTime = 10000;
 int maxPwm = 30;
-int halfPeriod = 400;
-int totalTime = 1000;
 
 int iLowH = 6;
 int iHighH = 20;
@@ -87,13 +108,13 @@ int initPwm() {
 }
 
 int goRight() {
-  pwmWrite(18, maxPwm);
-  pwmWrite(13, 0);
+  pwmWrite(13, maxPwm);
+  pwmWrite(18, 0);
 }
 
 int goLeft() {
-  pwmWrite(18, 0);
-  pwmWrite(13, maxPwm);
+  pwmWrite(13, 0);
+  pwmWrite(18, maxPwm);
 }
 
 int stop() {
@@ -123,13 +144,13 @@ int main( int argc, char** argv )
   initCam();
   
   if (argc > 1) {
-    maxPwm = atoi(argv[1]);
+    goal = atoi(argv[1]);
   }
   if (argc > 2) {
-    halfPeriod = atoi(argv[2]);
+    totalTime = atoi(argv[2]);
   }
   if (argc > 3) {
-    totalTime = atoi(argv[3]);
+    maxPwm = atoi(argv[3]);
   }
 
   int x, y;  
@@ -139,13 +160,9 @@ int main( int argc, char** argv )
   long time = getTime();
   long clock = getTime();
   int dir = true;
+  int counter = 0;
 
   for (int i  = 0; i < totalTime; ++i) {
-    if (getTime()-time > halfPeriod) {
-      time = getTime();
-      dir ? goRight() : goLeft();
-      dir = !dir;
-    }
     cap.read(imgOriginal);
     Mat img = imgOriginal(Rect(max(x - winSize/2, 0), max(y - winSize/2, 0), min(width - x, winSize), min(height - y, winSize)));
     // mats.push_back(img.clone());
@@ -195,16 +212,28 @@ int main( int argc, char** argv )
 
     long temp = getTime();
     double mult = 1;
-    double l = 0;
-    for (int i = 0; i < 5; ++i) {
-      l += coef[4-i] * mult;
-      mult *= x;
+    double l, ldot;
+
+    kalman(1.07 * x - 394, l, ldot);
+    if (abs(ldot) < 50) {
+      if (abs(l) < 6) {
+	dir = false;
+      } else {
+	if (l > 0) {
+	  dir = false;
+	} else {
+	  dir = true;
+	}
+      }
+    } else {
+      dir = (ldot > 0);
     }
-    ss << temp -clock << "\t"<< x << "\t" << y << "\t" << l << "\t" << 1.07 * x - 394 << endl;
+
+    if (l <= goal)  break;
+    dir ? goRight() : goLeft();
+
+    ss << temp -clock << "\t"<< x  << "\t" << 1.07 * x - 394 << "\t" << l << "\t" << ldot << "\t" << (int)dir*100 << endl;
     clock = temp;
-    // circle(imgLines, Point(x, y), 5, Scalar(0,0,255), 3);    
-    // imgOriginal = imgOriginal + imgLines;
-    // imwrite( "image" + to_string(i) + ".png", imgOriginal);
   }
   myfile.open ("out.txt");
   myfile << ss.rdbuf();
