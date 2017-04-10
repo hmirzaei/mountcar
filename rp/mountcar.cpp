@@ -13,11 +13,14 @@
 
 using namespace cv;
 using namespace std;
+const double coef[] = {0.000000014175208,  -0.000020224005030,   0.008447323489755,  -0.830402505433275,  34.128733821139527};
 
-const int width = 320;
-const int height = 89;
-const int winSize = 36;
-const int maxPwm = 30;
+const int width = 640;
+const int height = 178;
+const int winSize = 72;
+int maxPwm = 30;
+int halfPeriod = 400;
+int totalTime = 1000;
 
 int iLowH = 6;
 int iHighH = 20;
@@ -25,7 +28,7 @@ int iHighH = 20;
 int iLowS =84; 
 int iHighS = 255;
 
-int iLowV = 64;
+int iLowV = 20;
 int iHighV = 255;
 
 Mat imgOriginal;
@@ -119,7 +122,16 @@ int main( int argc, char** argv )
   initPwm();
   initCam();
   
-  
+  if (argc > 1) {
+    maxPwm = atoi(argv[1]);
+  }
+  if (argc > 2) {
+    halfPeriod = atoi(argv[2]);
+  }
+  if (argc > 3) {
+    totalTime = atoi(argv[3]);
+  }
+
   int x, y;  
   getInitPosition(x, y);
   
@@ -128,8 +140,8 @@ int main( int argc, char** argv )
   long clock = getTime();
   int dir = true;
 
-  for (int i  = 0; i < 1000; ++i) {
-    if (getTime()-time > 400) {
+  for (int i  = 0; i < totalTime; ++i) {
+    if (getTime()-time > halfPeriod) {
       time = getTime();
       dir ? goRight() : goLeft();
       dir = !dir;
@@ -182,7 +194,13 @@ int main( int argc, char** argv )
     }
 
     long temp = getTime();
-    ss << temp -clock << "\t"<< x << "\t" << y << endl;
+    double mult = 1;
+    double l = 0;
+    for (int i = 0; i < 5; ++i) {
+      l += coef[4-i] * mult;
+      mult *= x;
+    }
+    ss << temp -clock << "\t"<< x << "\t" << y << "\t" << l << "\t" << 1.07 * x - 394 << endl;
     clock = temp;
     // circle(imgLines, Point(x, y), 5, Scalar(0,0,255), 3);    
     // imgOriginal = imgOriginal + imgLines;
