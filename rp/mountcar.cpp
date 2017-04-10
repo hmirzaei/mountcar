@@ -39,7 +39,7 @@ const int width = 640;
 const int height = 178;
 const int winSize = 72;
 
-int goal = -140;
+int goal = -130;
 int totalTime = 10000;
 int maxPwm = 30;
 
