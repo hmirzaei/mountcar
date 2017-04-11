@@ -27,6 +27,23 @@ const int iHighS = 255;
 const int iLowV = 20;
 const int iHighV = 255;
 
+const int NUM_STATES = 2;
+const int FORCE_QUANT = 2;
+double STATE_BOUNDS[NUM_STATES][2];
+int NUM_GRIDS;
+int NUM_TILINGS;
+
+double EPS;
+double ALPHA;
+double GAMMA;
+double EPISODE_MAX_STEPS;
+
+int NUM_FEATS;
+double GRID_WIDTH[NUM_STATES];
+double ** TILING_OFFSETS;
+int NUM_ACTS;
+double ** params;
+
 int kalman(int m, double & l, double & ldot) {
   //        0.5356 z^2 - 0.3397 z + 1.131e-16
   // x1_e:  ---------------------------------
@@ -184,6 +201,194 @@ bool controlLaw(double l, double ldot) { // returns direction
   }
 }
 
+int ipow(double base, int exp)
+{
+  int result = 1;
+  while (exp)
+    {
+      if (exp & 1)
+	result *= base;
+      exp >>= 1;
+      base *= base;
+    }
+
+  return result;
+}
+
+double fRand(double fMin, double fMax)
+{
+  double f = (double)rand() / RAND_MAX;
+  return fMin + f * (fMax - fMin);
+}
+
+void features(double * s, int * fa) {
+  int tilingIndexes [NUM_TILINGS][NUM_STATES];
+  for (int i = 0; i< NUM_TILINGS; i++) 
+    for (int j = 0; j< NUM_STATES; j++) 
+      tilingIndexes[i][j] = fmin(fmax((int)((s[j] - STATE_BOUNDS[j][0] - TILING_OFFSETS[i][j]) / GRID_WIDTH[j]), 0), NUM_GRIDS - 1);
+
+  for (int i = 0; i< NUM_TILINGS; i++) {
+    fa[i] = ipow(NUM_GRIDS, NUM_STATES) * i;
+    for (int j = 0; j< NUM_STATES; j++) 
+      fa[i] += ipow(NUM_GRIDS, j) * tilingIndexes[i][j];
+  }
+}
+
+double Q(int * fa, int a){
+  double * tmp = params[a];
+  double  sum = 0;
+  for(int i = 0; i < NUM_TILINGS; i++)
+    sum += tmp[fa[i]];
+  return sum;
+}
+
+void greedy_policy(double * s, int * a, double * v){
+  double q_a[NUM_ACTS];
+  int fa[NUM_TILINGS];
+  features(s, fa);
+  double value = -DBL_MAX;
+  int indecies[NUM_ACTS];
+  int indLen = 0;
+  for (int i=0; i<NUM_ACTS; i++) {
+    double tmp = Q(fa, i);
+    if (tmp > value) {
+      value = tmp;
+      indLen = 0;
+      indecies[indLen++] = i;
+    } else if (tmp == value)
+      indecies[indLen++] = i;
+  }
+  *a = indecies[rand() % indLen];
+  *v = value;
+}
+
+void eps_policy(double * s, int * a, double * v){   
+  int greedy_action;
+  double value;
+  greedy_policy(s, &greedy_action, &value);
+  if (rand() < (int)(EPS * RAND_MAX)) {
+    *a = rand() % NUM_ACTS;
+    *v = value; // dummy value not correct though
+  } else {
+    *a = greedy_action;
+    *v = value;
+  }  
+}
+
+void doIter() {
+  double retArray[NUM_STEPS/DISP_STEPS];
+  int retArrCnt = 0;
+
+  srand (time(NULL) * root.get<int>("tcp_port"));
+  int step_loop = 1;
+  int ep_loop = 1;
+  int episodes = 0;
+  int steps = 0;
+
+  while (ep_loop) {
+    int step_loop = 1;
+    int episode_steps = 0;
+    double s[NUM_SYS_STATES];
+    initConds(s);
+    while (step_loop) {
+      steps ++;
+      int a;
+      double Q_a;
+      eps_policy(s, &a, &Q_a);
+      episode_steps ++;
+      int fa[NUM_TILINGS];
+      features(s, fa);
+      double sp[NUM_SYS_STATES];
+      double r;
+      int is_terminal;
+      transition(s, a, sp, &r, &is_terminal);
+      double delta = r - Q(fa, a);
+      double * tmp = params[a];
+      if (is_terminal/* || episode_steps >= EPISODE_MAX_STEPS*/) {
+	episodes ++;
+	for(int i = 0; i < NUM_TILINGS; i++)
+	  tmp[fa[i]] += ALPHA * delta;
+	step_loop = 0;
+      } else {
+	int ap;
+	double Q_ap;
+	greedy_policy(sp, &ap, &Q_ap);
+	delta += GAMMA * Q_ap;
+	for(int i = 0; i < NUM_TILINGS; i++)
+	  tmp[fa[i]] += ALPHA * delta;
+	memcpy(s, sp, NUM_SYS_STATES * sizeof(double));
+      }
+      if ((steps % DISP_STEPS) == 0) {
+	double initS [NUM_SYS_STATES];
+	initConds(initS);
+	double R = generate_episode_return(initS, pFile, steps/DISP_STEPS > 0.95 * NUM_STEPS /DISP_STEPS);
+	retArray[retArrCnt++] = R;
+	if ((steps % (DISP_STEPS*10)) == 0) {
+	  printf("%.0f %%\n",(double)steps/NUM_STEPS*100);
+	  fflush(stdout);
+	}
+      }
+      if (steps >= NUM_STEPS) {
+	step_loop = 0;
+	ep_loop = 0;
+      }
+    }			      
+  }  
+
+  FILE * pFile;
+  char str[20];
+  sprintf(str, "returns.txt")
+  pFile = fopen (str, "w");
+  for (int i=0; i< NUM_STEPS/DISP_STEPS; i++)
+    fprintf(pFile, "%f\n", retArray[i]);
+
+  fclose (pFile);  
+}
+
+void cleanUp(){
+  for(int i = 0; i < NUM_TILINGS; ++i) {
+    delete [] TILING_OFFSETS[i];
+  }
+  delete [] TILING_OFFSETS;
+  for(int i = 0; i < NUM_ACTS; ++i) {
+    delete [] params[i];
+  }
+  delete [] params;
+}
+
+void init() {
+  NUM_GRIDS = 10;
+  NUM_TILINGS = 10;
+  TILING_OFFSETS = new double*[NUM_TILINGS];
+  for(int i = 0; i < NUM_TILINGS; ++i) {
+    TILING_OFFSETS[i] = new double[NUM_STATES];
+  }
+  NUM_ACTS = FORCE_QUANT;
+
+  double temp[NUM_STATES][2] = {{-150, 150}, {-1200, 1200}};
+  memcpy(STATE_BOUNDS, temp, NUM_STATES*2*sizeof(double));
+
+  EPS = 0;
+  ALPHA = 0.05;
+  GAMMA = 1;
+  EPISODE_MAX_STEPS = 50000;
+  
+  NUM_FEATS = ipow(NUM_GRIDS, NUM_STATES) * NUM_TILINGS;
+  for (int i=0; i<NUM_STATES; i++) {
+    GRID_WIDTH[i] = (double)(STATE_BOUNDS[i][1] - STATE_BOUNDS[i][0]) / NUM_GRIDS;
+  }
+  srand (1);
+  for (int i=0; i<NUM_TILINGS; i++)
+    for (int j=0; j<NUM_STATES; j++)
+      TILING_OFFSETS[i][j] = -fRand(-GRID_WIDTH[j] / 2, GRID_WIDTH[j]/ 2);
+
+  params = new double*[NUM_ACTS];
+  for(int i = 0; i < NUM_ACTS; ++i) {
+    params[i] = new double[NUM_FEATS];
+    memset(params[i], 0, NUM_FEATS*sizeof(double));
+  }
+}
+
 int main( int argc, char** argv )
 {
   int goal = -130;
@@ -215,6 +420,11 @@ int main( int argc, char** argv )
   long clock = getTime();
   bool dir = true;
   int counter = 0;
+
+  init();
+  doIter();
+  cleanUp();
+  
 
   for (int i  = 0; i < totalTime; ++i) {
     processImage(cap, x, y, true, false);
