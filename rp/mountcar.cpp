@@ -29,6 +29,7 @@ const int iHighV = 255;
 
 const int NUM_STATES = 2;
 const int FORCE_QUANT = 2;
+const int NUM_RET_ARRAY = 1000;
 double STATE_BOUNDS[NUM_STATES][2];
 int NUM_GRIDS;
 int NUM_TILINGS;
@@ -43,8 +44,11 @@ double GRID_WIDTH[NUM_STATES];
 double ** TILING_OFFSETS;
 int NUM_ACTS;
 double ** params;
+double retArray[NUM_RET_ARRAY];
+int retArrCnt = 0;
 
-int kalman(int m, double & l, double & ldot) {
+
+void kalman(int m, double & l, double & ldot) {
   //        0.5356 z^2 - 0.3397 z + 1.131e-16
   // x1_e:  ---------------------------------
   //             z^2 - 1.268 z + 0.4644
@@ -143,10 +147,11 @@ int initCam(VideoCapture & cap) {
     {
       cout << "Cannot open the web cam" << endl;
       return -1;
-    } 
+    }
+  return 0;
 }
 
-int initPwm() {
+void initPwm() {
   wiringPiSetupGpio();
   pinMode(18, PWM_OUTPUT);
   pinMode(13, PWM_OUTPUT);
@@ -157,17 +162,17 @@ int initPwm() {
   pwmWrite(13, 0);
 }
 
-int goRight(int maxPwm) {
+void goRight(int maxPwm) {
   pwmWrite(13, maxPwm);
   pwmWrite(18, 0);
 }
 
-int goLeft(int maxPwm) {
+void goLeft(int maxPwm) {
   pwmWrite(13, 0);
   pwmWrite(18, maxPwm);
 }
 
-int stop() {
+void stop() {
   pwmWrite(18, 0);
   pwmWrite(13, 0);
 }
@@ -275,75 +280,6 @@ void eps_policy(double * s, int * a, double * v){
   }  
 }
 
-void doIter() {
-  double retArray[NUM_STEPS/DISP_STEPS];
-  int retArrCnt = 0;
-
-  srand (time(NULL) * root.get<int>("tcp_port"));
-  int step_loop = 1;
-  int ep_loop = 1;
-  int episodes = 0;
-  int steps = 0;
-
-  while (ep_loop) {
-    int step_loop = 1;
-    int episode_steps = 0;
-    double s[NUM_SYS_STATES];
-    initConds(s);
-    while (step_loop) {
-      steps ++;
-      int a;
-      double Q_a;
-      eps_policy(s, &a, &Q_a);
-      episode_steps ++;
-      int fa[NUM_TILINGS];
-      features(s, fa);
-      double sp[NUM_SYS_STATES];
-      double r;
-      int is_terminal;
-      transition(s, a, sp, &r, &is_terminal);
-      double delta = r - Q(fa, a);
-      double * tmp = params[a];
-      if (is_terminal/* || episode_steps >= EPISODE_MAX_STEPS*/) {
-	episodes ++;
-	for(int i = 0; i < NUM_TILINGS; i++)
-	  tmp[fa[i]] += ALPHA * delta;
-	step_loop = 0;
-      } else {
-	int ap;
-	double Q_ap;
-	greedy_policy(sp, &ap, &Q_ap);
-	delta += GAMMA * Q_ap;
-	for(int i = 0; i < NUM_TILINGS; i++)
-	  tmp[fa[i]] += ALPHA * delta;
-	memcpy(s, sp, NUM_SYS_STATES * sizeof(double));
-      }
-      if ((steps % DISP_STEPS) == 0) {
-	double initS [NUM_SYS_STATES];
-	initConds(initS);
-	double R = generate_episode_return(initS, pFile, steps/DISP_STEPS > 0.95 * NUM_STEPS /DISP_STEPS);
-	retArray[retArrCnt++] = R;
-	if ((steps % (DISP_STEPS*10)) == 0) {
-	  printf("%.0f %%\n",(double)steps/NUM_STEPS*100);
-	  fflush(stdout);
-	}
-      }
-      if (steps >= NUM_STEPS) {
-	step_loop = 0;
-	ep_loop = 0;
-      }
-    }			      
-  }  
-
-  FILE * pFile;
-  char str[20];
-  sprintf(str, "returns.txt")
-  pFile = fopen (str, "w");
-  for (int i=0; i< NUM_STEPS/DISP_STEPS; i++)
-    fprintf(pFile, "%f\n", retArray[i]);
-
-  fclose (pFile);  
-}
 
 void cleanUp(){
   for(int i = 0; i < NUM_TILINGS; ++i) {
@@ -368,9 +304,9 @@ void init() {
   double temp[NUM_STATES][2] = {{-150, 150}, {-1200, 1200}};
   memcpy(STATE_BOUNDS, temp, NUM_STATES*2*sizeof(double));
 
-  EPS = 0;
-  ALPHA = 0.05;
-  GAMMA = 1;
+  EPS = 0.04;
+  ALPHA = 0.2;
+  GAMMA = 0.999;
   EPISODE_MAX_STEPS = 50000;
   
   NUM_FEATS = ipow(NUM_GRIDS, NUM_STATES) * NUM_TILINGS;
@@ -416,16 +352,20 @@ int main( int argc, char** argv )
 
   int x, y;  
   getInitPosition(cap, x, y);
-  long time = getTime();
   long clock = getTime();
   bool dir = true;
   int counter = 0;
 
   init();
-  doIter();
-  cleanUp();
-  
 
+  srand(time(NULL));
+  int ep_loop = 1;
+  int episodes = 0;
+  int steps = 0;
+  int episode_steps = 0;
+  bool halt = false;
+  int halt_counter = 0;
+  
   for (int i  = 0; i < totalTime; ++i) {
     processImage(cap, x, y, true, false);
     
@@ -434,19 +374,81 @@ int main( int argc, char** argv )
     double l, ldot;
 
     kalman(1.07 * x - 394, l, ldot);
-    dir = controlLaw(l, ldot);
-    dir ? goRight(maxPwm) : goLeft(maxPwm);
 
+    //dir = controlLaw(l, ldot);
+    if (halt) {
+      stop();
+      if (halt_counter == 200) {
+	cout << endl << endl << "HALT" << endl << endl;
+	halt_counter = 0;
+	halt = false;
+      } else {
+	++halt_counter;
+      }
+    } else if (counter == 10) {
+      int step_loop = 1;
+      double s[NUM_STATES];
+      s[0] = l;
+      s[1] = ldot;
+
+      int a;
+      double Q_a;
+      eps_policy(s, &a, &Q_a);
+      episode_steps ++;
+      int fa[NUM_TILINGS];
+      features(s, fa);
+      double sp[NUM_STATES];
+      double r;
+      int is_terminal = (l <= goal);
+      if (is_terminal) r = 0; else r = (-l)/1000.0;
+      if (episode_steps == 100) {
+	is_terminal = 1;
+      }
+      double delta = r - Q(fa, a);
+      cout << delta << endl;
+      double * tmp = params[a];
+      if (is_terminal) {
+	episode_steps = 0;
+	halt = true;
+	episodes ++;
+	for(int i = 0; i < NUM_TILINGS; i++)
+	  tmp[fa[i]] += ALPHA * delta;
+      } else {
+	int ap;
+	double Q_ap;
+	greedy_policy(sp, &ap, &Q_ap);
+	delta += GAMMA * Q_ap;
+	for(int i = 0; i < NUM_TILINGS; i++)
+	  tmp[fa[i]] += ALPHA * delta;
+	memcpy(s, sp, NUM_STATES * sizeof(double));
+      }  
+      dir = (a==1);
+      counter = 0;
+    } else {
+      ++counter;
+    }
+    if (!halt)
+      dir ? goRight(maxPwm) : goLeft(maxPwm);
+    
     ss << temp -clock << "\t"<< x  << "\t" << 1.07 * x - 394 << "\t" << l << "\t" << ldot << "\t" << (int)dir*100 << endl;
     clock = temp;
-
-    if (l <= goal)  break;
+  
+    //    if (l <= goal)  break;
   }
   myfile.open ("out.txt");
   myfile << ss.rdbuf();
   myfile.close();
-  stop();
-
-  return 0;
   
+  FILE * pFile;
+  char str[20];
+  sprintf(str, "returns.txt");
+  pFile = fopen (str, "w");
+  for (int i=0; i< NUM_RET_ARRAY; i++)
+    fprintf(pFile, "%f\n", retArray[i]);
+  fclose (pFile);  
+ 
+  stop();
+  cleanUp();
+    
+  return 0;  
 }
