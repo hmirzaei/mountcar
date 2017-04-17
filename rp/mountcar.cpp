@@ -304,10 +304,10 @@ void init() {
   double temp[NUM_STATES][2] = {{-130, 130}, {-750, 750}};
   memcpy(STATE_BOUNDS, temp, NUM_STATES*2*sizeof(double));
 
-  EPS = 0.01;
+  EPS = 0.05;
   ALPHA = 0.05;
   GAMMA = 1;
-  EPISODE_MAX_STEPS = 50000;
+  EPISODE_MAX_STEPS = 500;
   
   NUM_FEATS = ipow(NUM_GRIDS, NUM_STATES) * NUM_TILINGS;
   for (int i=0; i<NUM_STATES; i++) {
@@ -414,7 +414,7 @@ int main( int argc, char** argv )
       is_terminal= (l <= goal);
       if (is_terminal) r = 0; else r = (-1)/1000.0;
       retVal += r;
-      if (episode_steps == 5000) {
+      if (episode_steps == EPISODE_MAX_STEPS) {
     	is_terminal = 1;
       }
       double delta = r - Q(fa, dir?1:0);
