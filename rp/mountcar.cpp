@@ -293,20 +293,20 @@ void cleanUp(){
 }
 
 void init() {
-  NUM_GRIDS = 10;
-  NUM_TILINGS = 10;
+  NUM_GRIDS = 20;
+  NUM_TILINGS = 20;
   TILING_OFFSETS = new double*[NUM_TILINGS];
   for(int i = 0; i < NUM_TILINGS; ++i) {
     TILING_OFFSETS[i] = new double[NUM_STATES];
   }
   NUM_ACTS = FORCE_QUANT;
 
-  double temp[NUM_STATES][2] = {{-150, 150}, {-1200, 1200}};
+  double temp[NUM_STATES][2] = {{-130, 130}, {-750, 750}};
   memcpy(STATE_BOUNDS, temp, NUM_STATES*2*sizeof(double));
 
-  EPS = 0.04;
-  ALPHA = 0.2;
-  GAMMA = 0.999;
+  EPS = 0.01;
+  ALPHA = 0.05;
+  GAMMA = 1;
   EPISODE_MAX_STEPS = 50000;
   
   NUM_FEATS = ipow(NUM_GRIDS, NUM_STATES) * NUM_TILINGS;
@@ -365,62 +365,74 @@ int main( int argc, char** argv )
   int episode_steps = 0;
   bool halt = false;
   int halt_counter = 0;
+  double r;
+  int is_terminal;
+  double retVal = 0;
+  double totalRet = 0;
+  
   
   for (int i  = 0; i < totalTime; ++i) {
     processImage(cap, x, y, true, false);
     
     long temp = getTime();
     double mult = 1;
-    double l, ldot;
+    double l, ldot, prev_l, prev_ldot;
+
 
     kalman(1.07 * x - 394, l, ldot);
 
-    //dir = controlLaw(l, ldot);
+    // dir = controlLaw(l, ldot);
     if (halt) {
       stop();
-      if (halt_counter == 200) {
-	cout << endl << endl << "HALT" << endl << endl;
-	halt_counter = 0;
-	halt = false;
+      if (halt_counter == 2000) {
+    	cout << endl << endl << "HALT" << endl << endl;
+    	halt_counter = 0;
+    	totalRet = retVal;
+    	retVal = 0;
+    	halt = false;
       } else {
-	++halt_counter;
+    	++halt_counter;
       }
     } else if (counter == 10) {
       int step_loop = 1;
-      double s[NUM_STATES];
-      s[0] = l;
-      s[1] = ldot;
+      double sa[NUM_STATES];
+      double sa2[NUM_STATES];
+      sa[0] = prev_l;
+      sa[1] = prev_ldot;
+      prev_l = l;
+      prev_ldot = ldot; 
+      sa2[0] = l;
+      sa2[1] = ldot;
 
       int a;
       double Q_a;
-      eps_policy(s, &a, &Q_a);
+      eps_policy(sa, &a, &Q_a);
       episode_steps ++;
       int fa[NUM_TILINGS];
-      features(s, fa);
-      double sp[NUM_STATES];
-      double r;
-      int is_terminal = (l <= goal);
-      if (is_terminal) r = 0; else r = (-l)/1000.0;
-      if (episode_steps == 100) {
-	is_terminal = 1;
+      features(sa, fa);
+
+      is_terminal= (l <= goal);
+      if (is_terminal) r = 0; else r = (-1)/1000.0;
+      retVal += r;
+      if (episode_steps == 5000) {
+    	is_terminal = 1;
       }
-      double delta = r - Q(fa, a);
-      cout << delta << endl;
-      double * tmp = params[a];
+      double delta = r - Q(fa, dir?1:0);
+      double * tmp = params[dir?1:0];
       if (is_terminal) {
-	episode_steps = 0;
-	halt = true;
-	episodes ++;
-	for(int i = 0; i < NUM_TILINGS; i++)
-	  tmp[fa[i]] += ALPHA * delta;
+    	episode_steps = 0;
+    	halt = true;
+    	episodes ++;
+    	for(int i = 0; i < NUM_TILINGS; i++)
+    	  tmp[fa[i]] += ALPHA * delta;
       } else {
-	int ap;
-	double Q_ap;
-	greedy_policy(sp, &ap, &Q_ap);
-	delta += GAMMA * Q_ap;
-	for(int i = 0; i < NUM_TILINGS; i++)
-	  tmp[fa[i]] += ALPHA * delta;
-	memcpy(s, sp, NUM_STATES * sizeof(double));
+    	int ap;
+    	double Q_ap;
+    	greedy_policy(sa2, &ap, &Q_ap);
+    	delta += GAMMA * Q_ap;
+    	for(int i = 0; i < NUM_TILINGS; i++)
+    	  tmp[fa[i]] += ALPHA * delta;
+    	//memcpy(s, sp, NUM_STATES * sizeof(double));
       }  
       dir = (a==1);
       counter = 0;
@@ -430,7 +442,8 @@ int main( int argc, char** argv )
     if (!halt)
       dir ? goRight(maxPwm) : goLeft(maxPwm);
     
-    ss << temp -clock << "\t"<< x  << "\t" << 1.07 * x - 394 << "\t" << l << "\t" << ldot << "\t" << (int)dir*100 << endl;
+    //ss << temp -clock << "\t"<< x  << "\t" << 1.07 * x - 394 << "\t" << l << "\t" << ldot << "\t" << (int)dir*100 << endl;
+    ss << l << "\t" << ldot << "\t" << totalRet*1000 << endl;
     clock = temp;
   
     //    if (l <= goal)  break;
