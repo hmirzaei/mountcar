@@ -301,13 +301,13 @@ void init() {
   }
   NUM_ACTS = FORCE_QUANT;
 
-  double temp[NUM_STATES][2] = {{-130, 130}, {-750, 750}};
+  double temp[NUM_STATES][2] = {{-130, 130}, {-800, 800}};
   memcpy(STATE_BOUNDS, temp, NUM_STATES*2*sizeof(double));
 
   EPS = 0.05;
   ALPHA = 0.05;
   GAMMA = 1;
-  EPISODE_MAX_STEPS = 500;
+  EPISODE_MAX_STEPS = 500000;
   
   NUM_FEATS = ipow(NUM_GRIDS, NUM_STATES) * NUM_TILINGS;
   for (int i=0; i<NUM_STATES; i++) {
@@ -327,14 +327,15 @@ void init() {
 
 int main( int argc, char** argv )
 {
-  int goal = -130;
-  int totalTime = 10000;
+  int goal = -80;
+  int totalTime = 100000;
   int maxPwm = 30;
 
   Mat imgOriginal;
   VideoCapture cap(0); //capture the video from webcam
   ofstream myfile;
   stringstream ss;
+
   
   setpriority(PRIO_PROCESS, 0, -20);
   initPwm();
@@ -384,8 +385,8 @@ int main( int argc, char** argv )
     // dir = controlLaw(l, ldot);
     if (halt) {
       stop();
-      if (halt_counter == 2000) {
-    	cout << endl << endl << "HALT" << endl << endl;
+      if (halt_counter == 200) {
+    	cout <<  "HALT  " << flush;
     	halt_counter = 0;
     	totalRet = retVal;
     	retVal = 0;
@@ -394,6 +395,7 @@ int main( int argc, char** argv )
     	++halt_counter;
       }
     } else if (counter == 10) {
+
       int step_loop = 1;
       double sa[NUM_STATES];
       double sa2[NUM_STATES];
@@ -412,7 +414,12 @@ int main( int argc, char** argv )
       features(sa, fa);
 
       is_terminal= (l <= goal);
-      if (is_terminal) r = 0; else r = (-1)/1000.0;
+      if (is_terminal) {
+	cout << "** goal ***  " << flush;
+	r = 0;
+      }	else {
+	r = (-1)/1000.0;
+      }
       retVal += r;
       if (episode_steps == EPISODE_MAX_STEPS) {
     	is_terminal = 1;
@@ -443,7 +450,8 @@ int main( int argc, char** argv )
       dir ? goRight(maxPwm) : goLeft(maxPwm);
     
     //ss << temp -clock << "\t"<< x  << "\t" << 1.07 * x - 394 << "\t" << l << "\t" << ldot << "\t" << (int)dir*100 << endl;
-    ss << l << "\t" << ldot << "\t" << totalRet*1000 << endl;
+    ss << l << "\t" << (int)halt*20 << "\t" << totalRet*1000 << endl;
+
     clock = temp;
   
     //    if (l <= goal)  break;
@@ -451,6 +459,7 @@ int main( int argc, char** argv )
   myfile.open ("out.txt");
   myfile << ss.rdbuf();
   myfile.close();
+
   
   FILE * pFile;
   char str[20];
