@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "hdw.h"
+#include "udpClient.h"
 
 using namespace std;
 
@@ -68,11 +69,11 @@ int main( int argc, char** argv )
   Mat imgOriginal;
   VideoCapture cap(0); //capture the video from webcam
   ofstream myfile;
-  stringstream ss;
 
   setpriority(PRIO_PROCESS, 0, -20);
   initPwm();
   initCam(cap);
+  initUdpClient();
   
   if (argc > 1) {
     goal = atoi(argv[1]);
@@ -96,9 +97,10 @@ int main( int argc, char** argv )
   int a, is_terminal;
   double retVal = 0;
   double totalRet = 0;
+  double epnum = 0;
   double l, ldot;
 
-  kalman(1.07 * x - 394, l, ldot);
+  kalman(1.07 * x - 394 - 16, l, ldot);
 
   a = init(l, ldot);
   a==1 ? goRight(maxPwm) : goLeft(maxPwm);
@@ -106,18 +108,21 @@ int main( int argc, char** argv )
   for (int i  = 0; i < totalTime; ++i) {
     long temp = getTime();
     processImage(cap, x, y, true, false);    
-    kalman(1.07 * x - 394, l, ldot);
+    kalman(1.07 * x - 394 - 16, l, ldot);
 
     if (halt) {
       stop();
-      if (halt_counter == 200) {
+      if (halt_counter == 250) {
     	cout <<  "HALT  " << flush;
     	halt_counter = 0;
+	epnum++;
     	totalRet = retVal;
     	retVal = 0;
     	halt = false;
       } else {
     	++halt_counter;
+	if (halt_counter%11==10)
+	  sendUdpData({l, (double)dir, (double)(halt), epnum, totalRet});
       }
     } else if (counter == 10) {
       is_terminal= (l <= goal);
@@ -132,17 +137,13 @@ int main( int argc, char** argv )
       a = rl_alg(l, ldot, r, is_terminal);
       dir = (a==1);
       counter = 0;
+      sendUdpData({l, (double)dir, (double)(halt), epnum, totalRet});
     } else {
       ++counter;
     }
     if (!halt) a==1 ? goRight(maxPwm) : goLeft(maxPwm);
-    
-    ss << l << "\t" << (int)halt*20 << "\t" << totalRet*1000 << endl;
   }
   
-  myfile.open ("out.txt");
-  myfile << ss.rdbuf();
-  myfile.close();  
   stop();
   clean_up();
   dlclose(rlso);
