@@ -76,9 +76,9 @@ int sendUdpData(vector<double> data) {
 	      sizeof(remoteServAddr));
   
   if(rc<0) {
-    printf("cannot send data \n");
-    close(sock);
-    exit(1);
+    // printf("cannot send data \n");
+    // close(sock);
+    //    exit(1);
   }
   for (auto entry: data) {
     char str[50];
@@ -89,9 +89,9 @@ int sendUdpData(vector<double> data) {
 		sizeof(remoteServAddr));
 
     if(rc<0) {
-      printf("cannot send data \n");
-      close(sock);
-      exit(1);
+      // printf("cannot send data \n");
+      //      close(sock);
+      //      exit(1);
     }
   }
   

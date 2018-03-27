@@ -26,5 +26,4 @@ wget -O /dev/null http://speedtest.wdc01.softlayer.com/downloads/test10.zip
 raspivid -o video.h264 -fps 200 -w 320 -h 240 -t 10000 &
 avconv -y -r 10 -i image%d.png -r 10 -vcodec mpeg4 -q:v 10 video.mp4
 time sudo ./mountcar
-/opt/vc/bin/raspivid -rot 180 -vf -t 0 -hf -fps 60 -w 640 -h 178 -o - | gst-launch-1.0 fdsrc ! h264parse ! rtph264pay config-interval=1 pt=96 ! gdppay ! tcpserversink host=192.168.1.109 port=5000
-
+/opt/vc/bin/raspivid -rot 180 -vf -t 0 -hf -fps 30 -w 640 -h 480 -o - | gst-launch-1.0 -e fdsrc ! h264parse ! rtph264pay pt=96 config-interval=5 ! udpsink host=169.234.205.190 port=5000
