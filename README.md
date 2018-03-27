@@ -3,11 +3,19 @@ Deployment
 
 ### On Web server:
 
-- Run opebstream/main.py on an screen:
+- Run opebstream/main.py in a screen:
 ```bash
 cd opebstream
 screen
 python main.py
+```
+
+- Run mountcar/web/wp-content/uploads/getprogress.sh in a screen:
+```bash
+cp web/wp-content/uploads/getprogress.sh  /var/www/html/wp-content/uploads/.
+cd /var/www/html/wp-content/uploads
+screen
+bash getprogress.sh
 ```
 
 - Generate the html document and copy it to html folder:
@@ -27,11 +35,20 @@ cp -r web/* /var/www/html/.
 
 ### On Raspberry Pi:
 
-- Just as a quick test, run mountcar on pi
+- copy runstart.sh to home:
 ```bash
-cd rp
+cp runstart.sh ~
 make
-sudo ./mountcar -80 100000 30
+```
+- build the project:
+```bash
+cd mountcar/rp
+make
 ```
 
+- change Makefile to build only the dynamic library:
+```
+all:
+	gcc -Wall -fPIC rlalg.c -shared -Wl,-soname,librlalg.so -o librlalg.so 
+```
 
