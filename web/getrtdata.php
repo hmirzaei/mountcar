@@ -2,7 +2,7 @@
 header('Access-Control-Allow-Origin: *');
 $host    = "localhost";
 $port    = 1501;
-$message = "1";
+$message = $_SERVER['QUERY_STRING'];
 
 
 $socket = socket_create(AF_INET, SOCK_STREAM, 0) or die("Could not create socket\n");

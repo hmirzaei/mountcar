@@ -10,7 +10,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h> /* memset() */
-#include <sys/time.h> /* select() */ 
+#include <sys/time.h> /* select() */
+#include <time.h>
 
 //for Mac OS X
 #include <stdlib.h>
@@ -24,6 +25,17 @@
 struct sockaddr_in cliAddr, remoteServAddr;
 int sock;
 
+unsigned long long getEpoch()
+{
+  struct timeval start;
+  long seconds, useconds;
+
+  gettimeofday(&start, NULL);
+  seconds  = start.tv_sec;
+  useconds = start.tv_usec;
+
+  return (unsigned long long)(seconds) * 1000 + (unsigned long long)useconds/1000;
+}
 int initUdpClient() {
   int rc;
   struct hostent *h;
@@ -74,12 +86,13 @@ int sendUdpData(vector<double> data) {
   rc = sendto(sock, "start", strlen("start")+1, 0, 
 	      (struct sockaddr *) &remoteServAddr, 
 	      sizeof(remoteServAddr));
+  unsigned long long ms = getEpoch();
+  char str[50];
+  snprintf(str, 50, "%llu", ms);
+  rc = sendto(sock, str, strlen(str)+1, 0, 
+	      (struct sockaddr *) &remoteServAddr, 
+	      sizeof(remoteServAddr));
   
-  if(rc<0) {
-    // printf("cannot send data \n");
-    // close(sock);
-    //    exit(1);
-  }
   for (auto entry: data) {
     char str[50];
     snprintf(str, 50, "%f", entry);
@@ -87,12 +100,6 @@ int sendUdpData(vector<double> data) {
     rc = sendto(sock, str, strlen(str)+1, 0, 
 		(struct sockaddr *) &remoteServAddr, 
 		sizeof(remoteServAddr));
-
-    if(rc<0) {
-      // printf("cannot send data \n");
-      //      close(sock);
-      //      exit(1);
-    }
   }
   
   return 1;

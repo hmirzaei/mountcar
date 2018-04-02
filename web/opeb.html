@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-27020350-2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'UA-27020350-2');
+  </script>
+
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+  <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="http://l-lin.github.io/font-awesome-animation/dist/font-awesome-animation.min.css" rel="stylesheet">
+  <link href="static/tabs.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/dygraph/2.1.0/dygraph.min.css"  rel="stylesheet">
+
+
+  <title>OPEB: Mountain-Car example</title>
+  <style type="text/css">
+  .container-fluid{
+    margin-right: auto;
+    margin-left: auto;
+    max-width: 1300px;
+  }
+  .container {
+    padding-right: 0; /*15px in bootstrap.css*/
+    padding-left: 0;  /*idem*/
+    margin-right: auto;
+    margin-left: auto;
+    max-width: 1300px;
+  }
+  .navbar {
+    margin: 2px;
+    padding: 2px;
+  }
+  .navbar-nav button{
+    margin: 5px;
+  }
+  #editor {
+    width: 100%;
+    height: 400px;
+    margin: 5px;
+  }
+  #progress {
+    width: 100%;
+    height: 150px;
+    margin: 5px;
+    overflow: auto;
+    background-color: #e0ebf5;
+    font-size: small;
+  }
+  #youtube {
+    width: 100%;
+    height: 200px;
+    margin: 2px;
+  }
+  .chart {
+    width: 100%;
+    height: 80px;
+  }
+  .retchart {
+    width: 100%;
+    height: 150px;
+  }
+  .plot {
+    width: 100%;
+    margin: 4px;
+  }
+  .title-plot {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: bold;
+  }
+  .dropdown-item {
+    cursor: pointer;
+  }
+  .success {
+    color: #3c763dE0;
+    background-color: #dff0d8E0;
+    position:absolute;
+    position: fixed;
+    display: none;
+    top: 50%;
+    left: 50%;
+    width: 300px;
+    height:160px;
+    margin-left:-150px;
+    margin-top:-80px;   
+    border: 1px solid;
+    text-align: center;
+    z-index : 99;
+  }
+  .p-success {
+    text-align: center;
+    position: relative;
+    top: 50%;
+    -ms-transform: translateY(-50%);
+    -webkit-transform: translateY(-50%);
+    transform: translateY(-50%);
+  }
+  .temp-prog {
+    display: none;
+  }
+  .title {
+    display: table;
+    min-height: 50px;
+    max-width: 1300px;
+    width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+    background-color: #f0f0f0;
+  }
+  h3 {
+    vertical-align: middle;
+    display:table-cell;
+    text-align: center;
+    font-size: x-large;
+  }
+  h4 {
+    font-size: larger;
+  }
+</style>
+</head>
+<body>
+ <div id="temp-progress" class="temp-prog"></div>
+ <div class="alert-box success"><p class="p-success">Started!<br>Please wait a couple of seconds.</p></div>
+ <div class="title"><h3>OPEB: Mountain-Car Example</h3></div>
+ <div class="container sticky-top">
+   <nav class="navbar  navbar-expand-md navbar-light bg-light mb-4">
+    <button id="btn-start" type="button" class="btn btn-primary">
+      <span id="span-start" class="fa fa-play"></span></span> Start
+    </button>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarCollapse">
+      <ul class="navbar-nav mr-auto">
+        <button id="btn-stop" type="button" class="btn btn-light" style="text-align: left;">
+          <span id="span-stop" class="fa fa-stop"></span></span> Stop
+        </button>
+        <div class="dropdown">
+          <button id="drop-alg" class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Algorithm: Q-Learning</button>
+          <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <ul id="btn-ql" class="dropdown-item">Q-Learning</ul>
+            <ul id="btn-hand" class="dropdown-item">Hand-Engineered</ul>
+            <ul id="btn-single" class="dropdown-item">Single Pass</ul>
+            <ul id="btn-reset" class="dropdown-item">
+              <span class="fa fa-file"></span></span> Reset Code
+            </ul>
+          </div>
+        </div>  
+
+      </div>  
+    </ul>
+  </div>
+</nav>
+</div>
+
+
+<div id="content" class="container-fluid">
+  <div class="row">
+    <div class="col-md-5 order-md-2" >
+      <div class="row">
+        <iframe id = "youtube" src="https://www.youtube.com/embed/live_stream?channel=UCNz7oZqDwSQ4dMxA4lqV93w&autoplay=1&origin=http://cps.ics.uci.edu&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>            
+        </iframe>                               
+      </div>
+      <div class="row">
+        <div id="plt-pos" class="plot">
+          <p class="title-plot">Car Position &emsp;<font color="green">&#8212; Goal</font>&ensp;<font color="blue">&#8212; Current</font></p>
+          <canvas id="chart-pos" class="chart"></canvas>
+        </div> 
+      </div>
+      <div class="row">
+        <div id="plt-act" class="plot">
+          <p class="title-plot">Action (Force Command)</p>
+          <canvas id="chart-act" class="chart"></canvas>
+        </div>
+      </div>
+      <div class="row">
+        <div id="plt-goal" class="plot">
+          <p class="title-plot">Goal Reached (Reset Episode)</p>
+          <canvas id="chart-goal" class="chart"></canvas>
+        </div>
+      </div>
+      <div class="row">
+        <div id="plt-ret" class="plot">
+          <p class="title-plot">Episode Returen</p>
+          <div id="chart-ret" class="retchart"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-7 order-md-1">
+      <main>
+        <input id="tab1" type="radio" name="tabs" checked>
+        <label for="tab1">Description</label>
+
+        <input id="tab2" type="radio" name="tabs">
+        <label id="label-tab2" for="tab2">Algorithm Code</label>
+
+        <section id="content1">
+          <p>This is an example implementation of an OPEB environment: The classical <a href="https://en.wikipedia.org/wiki/Mountain_car_problem">mountain-car example</a> which is widely used in Reinforcement Learning literatures. The goal of the AI algorithm is to move up a car which is suck at a bottom of valley to the top of the mountain. But, the problem is that the engine cannot provide enough force to move up the car in a single pass and therefore, it has to move back and force multiple times to get enough momentum.</p>
+          <p>You can start the experiment by clicking the Start button at top of the page. The live video shows the physical environment in real-time with a couple of seconds lag.</p>
+          <h4><a id="Realtime_plots_4"></a>Real-time plots</h4>
+          <p>The plots show following quantities in real-time:</p>
+          <ul>
+            <li>
+              <p><em>Car position and its goal</em>: the blue curve is the current position and the green line shows the goal. In this case, the goal is not to move the car all the way to the top. Just moving up the car to a certain height on the left side is enough to accomplish the task.</p>
+            </li>
+            <li>
+              <p><em>Action</em>: the force command to the car, i.e. maximum forward force(towards right side, action = 0) or maximum backward force (action = 1).</p>
+            </li>
+            <li>
+              <p><em>Goal reached</em>: ‘1’ means that the goal has been reached. No force is applied to the car for a while to move it back to the bottom of the valley and start a new episode.</p>
+            </li>
+            <li>
+              <p><em>Return</em>: is the total reward given for an episode. The x axis represents the episode number. Actually, a penalty (negative rewards) is given for each sample time that the car has not reached the goal yet. Therefore, the AI agent is encouraged to minimize the number of sample times and move up the car as fast as possible.</p>
+            </li>
+          </ul>
+          <h4><a id="Running_different_algorithms_16"></a>Running different algorithms</h4>
+          <p>You can select an algorithm using the dropdown menu on top of the page or try your own AI algorithm in C language (click menu button on smaller devices to see the dropdown list and other stuff). To write your algorithm code, hit ‘Reset Code’ button to start from a fresh template of the required callback functions.</p>
+          <p>The three existing algorithms are described below:</p>
+          <ul>
+            <li>
+              <p>Q-Learning: is an implementation of a Reinforcement Learning algorithm, i.e, <a href="https://en.wikipedia.org/wiki/Q-learning">Q-Learning algorithm,</a> with <a href="https://www.cs.utexas.edu/~pstone/Papers/bib2html-links/SARA05.slides.pdf">Tile-Coding function approximation</a>. The RL agent needs a couple of minutes to come up with a reasonably good policy</p>
+            </li>
+            <li>
+              <p>Hand-Engineered: is an algorithm developed by playing around with the system and a number of trial and errors. It turns out that a square wave action function with a certain frequency is enough to accomplish the task very fast.</p>
+            </li>
+            <li>
+              <p>Single-Pass: is made to show that the motor has not enough power to move up the car to the desired elevation in a single pass.</p>
+            </li>
+          </ul>
+          <h4><a id="Coding_area_28"></a>Coding area</h4>
+          <p>In the other tab, you can develop your code or see existing example algorithms. The build and run progress is updated in a window below the coding area. You can see possible build or run-time errors.</p>
+          <h4><a id="Some_details_about_the_hardware_32"></a>Some details about the hardware</h4>
+          <p>The car is derived by a toy dc motor and an L9110S driver.  A <a href="https://www.raspberrypi.org/products/raspberry-pi-zero-w/">raspberry Pi Zero W</a> runs the algorithm and sends out the real-time data.</p>
+          <p>The mechanical structures (car and the rail) are made using 3D printed components and some general-purpose hardware.</p>
+          <p>No sensors are attached to the car or the rail structure. The car position and speed estimated by RGB filtering of the video captured by the Raspberry Pi camera. Speed estimation and position filtering is done by a Kalman filter.</p>
+          <p>All the hardware are either 3D printed components or very low-cost hardware that are available everywhere. The total cost of the hardware including the Raspberry pi and the cameras is less than $40.</p>
+        </section>
+
+        <section id="content2">
+         <div id="editor">
+         </div>
+         <div id="progress">
+         </div>
+       </section>
+     </main>
+   </div>
+ </div>
+</div>
+
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<script src="static/ace-builds/src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+<script src="static/smoothie/smoothie.js" type="text/javascript"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/dygraph/2.1.0/dygraph.min.js"></script>
+
+<script type="text/javascript">
+  editor = ace.edit("editor");
+  editor.setTheme("ace/theme/xcode");
+  editor.session.setMode("ace/mode/c_cpp");
+  $.get("http://cps.ics.uci.edu/static/rlalg.c", function(data){editor.setValue(data, -1);});
+
+  var plots = ['pos', 'act', 'goal']
+  var rtdata = [];
+  var returns = [];
+  var retgraph;
+
+  Array.prototype.resize = function(newSize, defaultValue) {
+    while(newSize > this.length)
+      this.push(defaultValue);
+    this.length = newSize;
+  }
+
+  $(document).ready(function () {
+    retgraph = new Dygraph(document.getElementById("chart-ret"), returns,
+    {
+      digitsAfterDecimal: 4,
+      drawPoints: true,
+      labels: ['Iteration', 'Return'],
+      interactionModel: {},
+      colors: ["blue"],
+      strokeWidth: 2,
+      pointSize: 3,
+      showLabelsOnHighlight: false
+    });
+    $("#btn-reset").click(click_reset);
+    $("#btn-ql").click(click_ql);
+    $("#btn-single").click(click_single);
+    $("#btn-hand").click(click_hand);
+    $("#btn-start").click(click_start);
+    $("#btn-stop").click(click_stop);
+
+    (function(){
+      $(function(){
+       var xmlHttp = new XMLHttpRequest();
+       xmlHttp.open( "GET", "http://cps.ics.uci.edu/wp-content/uploads/progress?"+Math.random(), true ); 
+       xmlHttp.send( null );
+       xmlHttp.onload = function (e) {
+        var prev = document.getElementById('temp-progress').innerHTML 
+        document.getElementById('temp-progress').innerHTML = xmlHttp.responseText;
+        if (document.getElementById('temp-progress').innerHTML != prev) {    
+          document.getElementById('progress').innerHTML = xmlHttp.responseText;      
+          $("#progress").scrollTop($("#progress")[0].scrollHeight);
+        }
+      };  
+    }); 
+      setTimeout(arguments.callee, 500);
+    })();
+  });
+
+  var uuid = (function() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  })();
+
+  for (var i = 0; i < plots.length; i++) {
+    rtdata[plots[i]] = new TimeSeries();
+  }
+
+  (function(){
+    $(function(){
+      $.getJSON("http://cps.ics.uci.edu/getrtdata.php?" + uuid, function(data){
+        for (var i = 0; i < data.length; i++) {
+          for (var j = 0; j < plots.length; j++) {
+            rtdata[plots[j]].append(data[i][0], data[i][j + 1])
+          }
+        }
+        if (data.length > 0) {
+          var lastiter = data[data.length - 1][4]
+          var lastret = data[data.length - 1][5]
+          returns.resize(lastiter, 0);
+          if (lastiter > 0) {
+            returns[lastiter - 1] = [lastiter - 1, lastret]
+          } 
+        }
+        if (returns.length > 0)
+          retgraph.updateOptions( { 'file': returns } );
+      });
+    }); 
+    setTimeout(arguments.callee, 1000);
+  })();
+
+  window.onbeforeunload = function(){ 
+    click_stop();
+  }
+
+  function yRangeFunction(range) {
+    var min = Math.min(range.min, -100);
+    var max = range.max + 10;
+    return {min: min, max: max};
+  }
+
+  function createTimeline() {
+    for (var i = 0; i < plots.length; i++) {
+      if (plots[i] == 'pos') {
+        refline = [{color:'green',lineWidth:2,value:-80},{color:'gray',lineWidth:1,value:0}]
+        chart = new SmoothieChart({interpolation:'linear',tooltip:true, yRangeFunction:yRangeFunction, horizontalLines: refline, millisPerPixel: 30, responsive: true,
+          grid:{fillStyle:'#e6e6e6',strokeStyle:'#cbcbcb'}, labels:{fillStyle:'#000000',fontSize:13}});
+      } else {
+        chart = new SmoothieChart({interpolation:'linear', millisPerPixel: 30, responsive: true,
+          grid:{fillStyle:'#e6e6e6',strokeStyle:'#cbcbcb'}, labels:{fillStyle:'#000000',fontSize:13}});
+      }
+
+      chart.addTimeSeries(rtdata[plots[i]], {lineWidth:2,strokeStyle:'#102aff'});
+      chart.streamTo(document.getElementById("chart-" + plots[i]), 2000);
+    }
+  }
+  window.onload = createTimeline;
+
+
+  function click_reset() {$("#drop-alg").html("Algorithm: Custom");load_code("rltemplate.c");}
+  function click_ql() {$("#drop-alg").html("Algorithm: Q-Learning");load_code("rlalg.c");}
+  function click_hand() {$("#drop-alg").html("Algorithm: Hand-Engineered");load_code("handeng.c");}
+  function click_single() {$("#drop-alg").html("Algorithm: Single Pass");load_code("singlepass.c");}
+  function click_start() {
+    var code = encodeURIComponent(editor.getValue())
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET", "getcode.php?" + code, true); 
+    $("#btn-stop").addClass("disabled");
+    $("#btn-stop" ).prop("disabled", true);
+    $("#btn-start").addClass("disabled");
+    $("#btn-start" ).prop("disabled", true);
+    $("#span-start").removeClass("fa-play");
+    $("#span-start").addClass("fa-spinner faa-spin animated")
+    xmlHttp.send( null );
+    xmlHttp.onload = function (e) {
+      $("div.success").fadeIn( 300 ).delay( 1500 ).fadeOut( 400 );
+      $("#btn-stop").removeClass("disabled");
+      $("#btn-stop" ).prop("disabled", false);
+      $("#btn-start").removeClass("disabled");
+      $("#btn-start" ).prop("disabled", false);
+      $("#span-start").removeClass("fa-spinner faa-spin animated")
+      $("#span-start").addClass("fa-play");
+    };  
+  }
+
+  function click_stop() {
+    var code = encodeURIComponent(editor.getValue())
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET", "stop.php?", true); 
+    $("#btn-stop").addClass("disabled");
+    $("#btn-stop" ).prop("disabled", true);
+    $("#btn-start").addClass("disabled");
+    $("#btn-start" ).prop("disabled", true);
+    $("#span-stop").removeClass("fa-stop");
+    $("#span-stop").addClass("fa-spinner faa-spin animated")
+    xmlHttp.send( null );
+    xmlHttp.onload = function (e) {
+      $("#btn-stop").removeClass("disabled");
+      $("#btn-stop" ).prop("disabled", false);
+      $("#btn-start").removeClass("disabled");
+      $("#btn-start" ).prop("disabled", false);
+      $("#span-stop").removeClass("fa-spinner faa-spin animated")
+      $("#span-stop").addClass("fa-stop");
+    };  
+  }
+
+  function load_code(filename) {
+    $.get("http://cps.ics.uci.edu/static/" + filename, 
+      function(data){editor.setValue(data, -1);});
+    document.getElementById('tab2').checked = true;
+  }
+
+</script>
+
+</body>
+</html>

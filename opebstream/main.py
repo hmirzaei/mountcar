@@ -6,20 +6,17 @@ import threading
 import time
 import sys
 import json
+from multiprocessing import Queue
 
 N = 100
-batch_len = 5
-time_arr = np.array(range(N))
-x_arr = np.zeros((N,))
-act_arr = np.zeros((N,))
-halt_arr = np.zeros((N,))
-ret_arr = np.array([])
+batch_len = 6
+client_q_map = dict()
 
 def get_udp_data():
-    global x_arr, act_arr, halt_arr, time_arr, iter_arr, ret_arr
+    global client_q_map
     inp = ""
     data_ind = 0
-    rec_data = np.zeros((batch_len,))
+    rec_data = [0] * batch_len
     UDP_IP = ""
     UDP_PORT = 1500
 
@@ -45,25 +42,19 @@ def get_udp_data():
                 if data_ind == batch_len: new_batch.append(rec_data)
                 data_ind = 0
             elif data_ind < batch_len:
-                rec_data[data_ind] = float(t)
-                data_ind += 1
+                try:
+                    rec_data[data_ind] = int(t) if data_ind == 0 else float(t)
+                    data_ind += 1
+                except ValueError:
+                    data_ind = 0
 
         if len(new_batch) > 0:
-            new_batch = new_batch[:N]
-            new_batch = [list(i) for i in zip(*new_batch)]
-            m = len(new_batch[0])
-            x_arr[:-m] = x_arr[m:]
-            x_arr[-m:] = new_batch[0]
-            act_arr[:-m] = act_arr[m:]
-            act_arr[-m:] = new_batch[1]
-            halt_arr[:-m] = halt_arr[m:]
-            halt_arr[-m:] = new_batch[2]
-            last_iter = new_batch[3][-1]
-            ret_arr.resize((int(last_iter),), refcheck=False)
-            for iter, ret in zip(new_batch[3], new_batch[4]):
-                if int(iter) > 0: ret_arr[int(iter)-1] = ret
-                
-            
+            items = client_q_map.items()
+            for k, q in items:
+                map(q.put, new_batch)
+                if q.qsize() > 100:
+                    client_q_map.pop(k, 0)
+
         time.sleep(0.01)
 
 t = threading.Thread(target=get_udp_data)
@@ -87,7 +78,13 @@ def clientthread(conn):
     while True:
          
         data = conn.recv(1024)
-        reply = str(json.dumps(dict(time = list(time_arr), x=list(x_arr), act=list(act_arr), halt=list(halt_arr), ret=list(ret_arr))))
+        if not data in client_q_map:
+            client_q_map[data] = Queue()
+        size = client_q_map[data].qsize()
+        l = []
+        for i in range(size):
+            l.append(client_q_map[data].get())
+        reply = str(json.dumps(l))
         if not data: 
             break
      

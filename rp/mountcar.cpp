@@ -100,7 +100,7 @@ int main( int argc, char** argv )
   double epnum = 0;
   double l, ldot;
 
-  kalman(1.07 * x - 394 - 16, l, ldot);
+  kalman(1.07 * x - 394 - 5, l, ldot);
 
   a = init(l, ldot);
   a==1 ? goRight(maxPwm) : goLeft(maxPwm);
@@ -108,7 +108,7 @@ int main( int argc, char** argv )
   for (int i  = 0; i < totalTime; ++i) {
     long temp = getTime();
     processImage(cap, x, y, true, false);    
-    kalman(1.07 * x - 394 - 16, l, ldot);
+    kalman(1.07 * x - 394 - 5, l, ldot);
 
     if (halt) {
       stop();
